@@ -1,99 +1,135 @@
 # Automatická synchronizace s GitHubem
 
-Projekt má nastavenou automatickou synchronizaci s GitHubem. Existují dva způsoby:
+Projekt je připojen k GitHubu na: **https://github.com/PetMatejda/meraky_arealu_zastavka.git**
 
-## 1. Automatický push po commitu (Git Hook)
+## ✅ Aktuální stav
 
-Po každém `git commit` se automaticky pushne na GitHub.
+- ✅ Repository připojeno k GitHubu
+- ✅ Všechny soubory jsou synchronizované
+- ✅ GitHub Actions workflows jsou aktivní
+- ✅ Automatické nasazení na Vercel je připraveno
 
-### Nastavení (jednorázově):
+## 🔄 Způsoby synchronizace
 
-```powershell
-.\scripts\setup-auto-sync.ps1
+### 1. Rychlá synchronizace (doporučeno)
+
+Použijte NPM script pro automatickou synchronizaci:
+
+```bash
+# Automaticky add + commit + push
+npm run sync
+
+# Nebo s vlastní zprávou
+npm run sync:msg "Moje změna"
 ```
 
-### Jak to funguje:
+### 2. Git alias (acp = add, commit, push)
 
-1. Uděláte změny v kódu
-2. Vytvoříte commit: `git commit -m "Moje změna"`
-3. **Automaticky** se pushne na GitHub
-4. GitHub Actions spustí CI/CD
-5. Vercel automaticky nasadí novou verzi
+```bash
+# Použijte git alias pro rychlý workflow
+git acp "Popis změny"
+```
 
-## 2. Watch script (sledování změn souborů)
+### 3. Manuální synchronizace
 
-Script automaticky sleduje změny a commit + push při každé změně.
+```bash
+git add .
+git commit -m "Popis změn"
+git push origin main
+```
 
-### Spuštění:
+### 4. Watch script (sledování změn)
+
+Pro automatické sledování změn a commitování:
 
 ```powershell
 .\scripts\watch-and-sync.ps1
 ```
 
-### Jak to funguje:
+**Pozor:** Tento režim automaticky commituje všechny změny každých 5 sekund!
 
-- Script běží na pozadí
-- Každých 5 sekund kontroluje změny
-- Pokud jsou změny, automaticky:
-  1. Přidá je do gitu (`git add .`)
-  2. Vytvoří commit s timestampem
-  3. Pushne na GitHub
-  4. Vercel nasadí novou verzi
+## 🚀 Automatické nasazení
 
-**Pozor:** Tento režim automaticky commituje všechny změny. Používejte opatrně!
+Po každém push na GitHub:
 
-## 3. Manuální synchronizace
+1. **GitHub Actions** automaticky:
+   - Spustí CI (testy, lint, build)
+   - Ověří, že build projde
 
-Pokud nechcete automatickou synchronizaci, můžete použít:
+2. **Vercel** (pokud je nastaven):
+   - Automaticky nasadí novou verzi
+   - Dostupné na produkční URL
+
+## 📝 Doporučený workflow
+
+**Pro každodenní práci:**
 
 ```bash
-# Standardní workflow
+# 1. Udělejte změny v kódu
+# 2. Synchronizujte
+npm run sync "Popis změny"
+
+# Nebo použijte git alias
+git acp "Popis změny"
+```
+
+**Pro větší změny:**
+
+```bash
+# 1. Vytvořte feature branch
+git checkout -b feature/nova-funkce
+
+# 2. Udělejte změny a commitněte
 git add .
-git commit -m "Popis změn"
-git push
+git commit -m "Přidána nová funkce"
 
-# Nebo použít auto-commit script
-npm run commit
+# 3. Pushněte branch
+git push origin feature/nova-funkce
+
+# 4. Vytvořte Pull Request na GitHubu
 ```
 
-## Doporučený workflow
+## 🔍 Ověření synchronizace
 
-**Pro vývoj:**
-- Použijte **Git Hook** (automatický push po commitu)
-- Máte kontrolu nad tím, kdy se commit vytvoří
-- Automaticky se pushne a nasadí
-
-**Pro rychlé změny:**
-- Použijte **Watch script** pro automatické commitování
-- Vhodné pro malé změny a testování
-
-## Ověření nastavení
-
-Zkontrolujte, že git hook funguje:
+Zkontrolujte stav:
 
 ```bash
-# Vytvořit test commit
-git commit --allow-empty -m "Test auto-sync"
+# Zkontrolovat remote
+git remote -v
 
-# Mělo by se automaticky pushnout
+# Zkontrolovat status
+git status
+
+# Zkontrolovat poslední commity
+git log --oneline -5
+
+# Zkontrolovat, jestli je vše synchronizované
+git fetch
+git status
 ```
 
-## Troubleshooting
+## 🛠️ Troubleshooting
 
-### Git hook nefunguje:
+### Push selže s chybou autentizace:
 
-1. Zkontrolujte, že hook existuje: `.git/hooks/post-commit`
-2. Spusťte setup znovu: `.\scripts\setup-auto-sync.ps1`
-3. Zkontrolujte oprávnění: hook musí být spustitelný
+1. Zkontrolujte GitHub credentials
+2. Použijte Personal Access Token místo hesla
+3. Nebo nastavte SSH key
 
-### Watch script nefunguje:
+### Hook nefunguje:
 
-1. Zkontrolujte, že máte oprávnění k zápisu do gitu
-2. Ověřte, že remote je správně nastaven: `git remote -v`
-3. Zkontrolujte, že máte oprávnění pushnout: `git push --dry-run`
+Git hooks na Windows mohou mít problémy. Použijte místo toho:
+- `npm run sync` - nejspolehlivější
+- `git acp "zpráva"` - git alias
 
-### Push selže:
+### Změny se nepushují:
 
-1. Zkontrolujte autentizaci s GitHubem
-2. Ověřte, že máte oprávnění k repository
-3. Zkontrolujte network připojení
+1. Zkontrolujte: `git status`
+2. Zkontrolujte remote: `git remote -v`
+3. Zkuste manuální push: `git push origin main`
+
+## 📚 Další informace
+
+- **GitHub repository:** https://github.com/PetMatejda/meraky_arealu_zastavka
+- **GitHub Actions:** Zkontrolujte v repository → Actions tab
+- **Vercel deployment:** Pokud je nastaven, zkontrolujte Vercel dashboard

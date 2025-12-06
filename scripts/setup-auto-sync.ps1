@@ -4,21 +4,38 @@
 Write-Host "Nastavuji automatickou synchronizaci s GitHubem..." -ForegroundColor Cyan
 
 $hookPath = ".git\hooks\post-commit"
+$hookPathPs1 = ".git\hooks\post-commit.ps1"
+
+# Bash verze (pro Git Bash)
 $hookContent = @"
 #!/bin/sh
-# Automatický push po každém commitu
+# Automaticky push po kazdem commitu
 
 # Push na GitHub
 git push origin main
 
-# Zobrazit zprávu
+# Zobrazit zpravu
 echo ""
-echo "✅ Automaticky pushnuto na GitHub!"
-echo "🌐 Aplikace se automaticky nasadí na Vercel"
+echo "Automaticky pushnuto na GitHub!"
+echo "Aplikace se automaticky nasadi na Vercel"
 "@
 
-# Vytvořit hook
-$hookContent | Out-File -FilePath $hookPath -Encoding UTF8 -NoNewline
+# PowerShell verze (pro Windows)
+$hookContentPs1 = @"
+# PowerShell verze post-commit hooku pro Windows
+
+# Push na GitHub
+git push origin main
+
+# Zobrazit zpravu
+Write-Host ""
+Write-Host "Automaticky pushnuto na GitHub!" -ForegroundColor Green
+Write-Host "Aplikace se automaticky nasadi na Vercel" -ForegroundColor Yellow
+"@
+
+# Vytvořit obě verze hooku
+$hookContent | Out-File -FilePath $hookPath -Encoding ASCII -NoNewline
+$hookContentPs1 | Out-File -FilePath $hookPathPs1 -Encoding UTF8
 
 # Nastavit spustitelná práva (pro Git Bash)
 $chmodPath = 'C:\Program Files\Git\bin\chmod.exe'

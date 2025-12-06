@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "commit": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-commit.ps1",
-    "commit:msg": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-commit.ps1"
+    "commit:msg": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-commit.ps1",
+    "sync": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-sync-simple.ps1",
+    "sync:msg": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-sync-simple.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
