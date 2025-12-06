@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "commit": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-commit.ps1",
+    "commit:msg": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-commit.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -36,4 +38,3 @@
     "typescript": "^5"
   }
 }
-

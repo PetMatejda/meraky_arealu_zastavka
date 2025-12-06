@@ -73,3 +73,14 @@ Aplikace bude dostupná na `http://localhost:3000`
 
 Podrobný popis struktury projektu najdete v [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
 
+## GitHub a automatické nasazení
+
+Projekt je připraven pro GitHub a automatické nasazení:
+
+- ✅ Git repository inicializováno
+- ✅ GitHub Actions workflows připraveny
+- ✅ Automatické deployment na Vercel
+
+**Rychlý start:** Viz [QUICK_START.md](./QUICK_START.md)  
+**Detailní návod:** Viz [GITHUB_SETUP.md](./GITHUB_SETUP.md)
+
