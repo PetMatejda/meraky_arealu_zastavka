@@ -361,7 +361,7 @@ export default function ReadingsPage() {
           note: note || null,
         }
         
-        // @ts-expect-error - Supabase types issue with update
+        // @ts-ignore - Supabase types issue with update
         const { data, error } = await supabase
           .from('readings')
           .update(updateData)
@@ -382,7 +382,7 @@ export default function ReadingsPage() {
           created_by: user?.id || null,
         }
         
-        // @ts-expect-error - Supabase types issue with insert
+        // @ts-ignore - Supabase types issue with insert
         const { data, error } = await supabase
           .from('readings')
           .insert(insertData)
