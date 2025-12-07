@@ -93,10 +93,11 @@ export default function DashboardPage() {
 
       if (!prevPeriod) return []
 
+      const prevPeriodId = (prevPeriod as { id: string }).id
       const { data, error } = await supabase
         .from('readings')
         .select('*')
-        .eq('billing_period_id', prevPeriod.id)
+        .eq('billing_period_id', prevPeriodId)
       
       if (error) throw error
       return data as Reading[]
