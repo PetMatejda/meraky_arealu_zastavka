@@ -70,17 +70,23 @@ export default function BillingPage() {
       if (!meters) return []
 
       // Get readings for current and previous period
-      const { data: currentReadings } = await supabase
+      const { data: currentReadingsData } = await supabase
         .from('readings')
         .select('*')
         .eq('billing_period_id', selectedPeriod)
+      const currentReadings: Reading[] = currentReadingsData || []
 
-      const { data: prevReadings } = prevPeriod
-        ? await supabase
+      let prevReadings: Reading[] | null = null
+      if (prevPeriod) {
+        const prevPeriodId = (prevPeriod as { id: string }).id
+        if (prevPeriodId) {
+          const { data: prevReadingsData } = await supabase
             .from('readings')
             .select('*')
-            .eq('billing_period_id', prevPeriod.id)
-        : { data: null }
+            .eq('billing_period_id', prevPeriodId)
+          prevReadings = prevReadingsData || null
+        }
+      }
 
       // Build report
       const reportRows: BillingReportRow[] = []

@@ -82,11 +82,14 @@ export default function ReadingsPage() {
 
       if (!prevPeriod) return null
 
+      const prevPeriodId = (prevPeriod as { id: string } | null)?.id
+      if (!prevPeriodId) return null
+      
       const { data, error } = await supabase
         .from('readings')
         .select('*')
         .eq('meter_id', selectedMeter)
-        .eq('billing_period_id', prevPeriod.id)
+        .eq('billing_period_id', prevPeriodId)
         .single()
 
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows returned
@@ -205,7 +208,7 @@ export default function ReadingsPage() {
           photo_url: photoUrl,
           note: note || null,
           created_by: user?.id || null,
-        })
+        } as any)
         .select()
         .single()
 

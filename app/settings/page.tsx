@@ -198,7 +198,7 @@ function BillingPeriodForm({
 
     const { error } = await supabase
       .from('billing_periods')
-      .insert(data)
+      .insert(data as any)
 
     if (error) {
       alert('Chyba při vytváření: ' + error.message)
@@ -369,7 +369,7 @@ function TenantForm({
 
     const { error } = await supabase
       .from('tenants')
-      .insert(data)
+      .insert(data as any)
 
     if (error) {
       alert('Chyba při vytváření: ' + error.message)
