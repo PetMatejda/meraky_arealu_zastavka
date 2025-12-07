@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Camera, Upload, Save, AlertCircle } from 'lucide-react'
+import { Camera, Upload, Save, AlertCircle, Edit, Trash2, List } from 'lucide-react'
 import { extractMeterData } from '@/lib/utils/ocr'
 import { cn } from '@/lib/utils/cn'
 import type { BillingPeriod, Meter, Reading } from '@/lib/types/database'
@@ -27,6 +27,9 @@ export default function ReadingsPage() {
   const [ocrProgress, setOcrProgress] = useState<number>(0)
   const [ocrResult, setOcrResult] = useState<{ serialNumber: string | null; value: number | null; confidence: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editingReading, setEditingReading] = useState<Reading | null>(null)
+  const [showReadingsList, setShowReadingsList] = useState(false)
+  const [filterPeriod, setFilterPeriod] = useState<string>('')
 
   const queryClient = useQueryClient()
 
@@ -56,6 +59,26 @@ export default function ReadingsPage() {
         
       if (error) throw error
       return data as Meter[]
+    },
+  })
+
+  // Fetch all readings for list
+  const { data: allReadings } = useQuery({
+    queryKey: ['readings', filterPeriod],
+    queryFn: async () => {
+      let query = supabase
+        .from('readings')
+        .select('*, meter:meters(*), billing_period:billing_periods(*)')
+        .order('date_taken', { ascending: false })
+
+      if (filterPeriod) {
+        query = query.eq('billing_period_id', filterPeriod)
+      }
+
+      const { data, error } = await query
+      
+      if (error) throw error
+      return data as (Reading & { meter: Meter; billing_period: BillingPeriod })[]
     },
   })
 
@@ -290,7 +313,7 @@ export default function ReadingsPage() {
     parseFloat(newValue) >= previousValue
   )
 
-  // Save reading mutation
+  // Save reading mutation (create or update)
   const saveReadingMutation = useMutation({
     mutationFn: async () => {
       if (!selectedMeter || !selectedPeriod || !newValue) {
@@ -302,8 +325,8 @@ export default function ReadingsPage() {
         throw new Error('Neplatná hodnota odečtu')
       }
 
-      // Upload photo if exists
-      let photoUrl: string | null = null
+      // Upload photo if exists and is new
+      let photoUrl: string | null = editingReading?.photo_url || null
       if (photo) {
         const fileExt = photo.name.split('.').pop()
         const fileName = `${selectedMeter}-${Date.now()}.${fileExt}`
@@ -327,22 +350,41 @@ export default function ReadingsPage() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Save reading
-      const { data, error } = await supabase
-        .from('readings')
-        .insert({
-          meter_id: selectedMeter,
-          billing_period_id: selectedPeriod,
-          value: value,
-          photo_url: photoUrl,
-          note: note || null,
-          created_by: user?.id || null,
-        } as any)
-        .select()
-        .single()
+      if (editingReading) {
+        // Update existing reading
+        const { data, error } = await supabase
+          .from('readings')
+          .update({
+            meter_id: selectedMeter,
+            billing_period_id: selectedPeriod,
+            value: value,
+            photo_url: photoUrl,
+            note: note || null,
+          } as any)
+          .eq('id', editingReading.id)
+          .select()
+          .single()
 
-      if (error) throw error
-      return data
+        if (error) throw error
+        return data
+      } else {
+        // Create new reading
+        const { data, error } = await supabase
+          .from('readings')
+          .insert({
+            meter_id: selectedMeter,
+            billing_period_id: selectedPeriod,
+            value: value,
+            photo_url: photoUrl,
+            note: note || null,
+            created_by: user?.id || null,
+          } as any)
+          .select()
+          .single()
+
+        if (error) throw error
+        return data
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['readings'] })
@@ -355,13 +397,64 @@ export default function ReadingsPage() {
       setNote('')
       setOcrResult(null)
       setError(null)
+      setEditingReading(null)
+      setSelectedMeter('')
+      setSelectedPeriod('')
       
-      alert('Odečet byl úspěšně uložen!')
+      alert(editingReading ? 'Odečet byl úspěšně upraven!' : 'Odečet byl úspěšně uložen!')
     },
     onError: (error: Error) => {
       setError(error.message)
     },
   })
+
+  // Delete reading mutation
+  const deleteReadingMutation = useMutation({
+    mutationFn: async (readingId: string) => {
+      const { error } = await supabase
+        .from('readings')
+        .delete()
+        .eq('id', readingId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['readings'] })
+      queryClient.invalidateQueries({ queryKey: ['previous-reading'] })
+      alert('Odečet byl úspěšně smazán!')
+    },
+    onError: (error: Error) => {
+      alert('Chyba při mazání: ' + error.message)
+    },
+  })
+
+  // Load reading for editing
+  const handleEditReading = (reading: Reading & { meter: Meter; billing_period: BillingPeriod }) => {
+    setEditingReading(reading)
+    setSelectedMeter(reading.meter_id)
+    setSelectedPeriod(reading.billing_period_id)
+    setNewValue(reading.value.toString())
+    setNote(reading.note || '')
+    if (reading.photo_url) {
+      setPhotoPreview(reading.photo_url)
+    }
+    setShowReadingsList(false)
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Reset form for new reading
+  const handleNewReading = () => {
+    setEditingReading(null)
+    setSelectedMeter('')
+    setSelectedPeriod('')
+    setNewValue('')
+    setNote('')
+    setPhoto(null)
+    setPhotoPreview(null)
+    setOcrResult(null)
+    setError(null)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -376,10 +469,138 @@ export default function ReadingsPage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-4xl">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Mobilní odečet</h1>
-        <p className="text-gray-600 mt-2 text-sm sm:text-base">Vyfotografujte měřák a zadejte hodnotu</p>
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {editingReading ? 'Upravit odečet' : 'Mobilní odečet'}
+          </h1>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base">
+            {editingReading ? 'Upravte údaje o odečtu' : 'Vyfotografujte měřák a zadejte hodnotu'}
+          </p>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => setShowReadingsList(!showReadingsList)}
+            className="flex-1 sm:flex-none"
+          >
+            <List className="mr-2 h-4 w-4" />
+            {showReadingsList ? 'Skrýt seznam' : 'Seznam odečtů'}
+          </Button>
+          {editingReading && (
+            <Button
+              variant="outline"
+              onClick={handleNewReading}
+              className="flex-1 sm:flex-none"
+            >
+              Nový odečet
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Readings List */}
+      {showReadingsList && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Seznam odečtů</CardTitle>
+            <CardDescription>Zobrazte a upravte existující odečty</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="filter_period">Filtrovat podle období</Label>
+                <Select
+                  id="filter_period"
+                  value={filterPeriod}
+                  onChange={(e) => setFilterPeriod(e.target.value)}
+                  className="mt-1"
+                >
+                  <option value="">Všechna období</option>
+                  {billingPeriods?.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.month}/{period.year} {period.status === 'closed' ? '(uzavřeno)' : ''}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {allReadings && allReadings.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {allReadings.map((reading) => (
+                    <div
+                      key={reading.id}
+                      className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold">
+                              {reading.meter?.serial_number || 'Neznámý měřák'}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              ({reading.meter?.media_type === 'gas' ? 'Plyn' : 
+                                reading.meter?.media_type === 'electricity' ? 'Elektřina' : 'Voda'})
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Období: {reading.billing_period?.month}/{reading.billing_period?.year}
+                          </div>
+                          <div className="text-sm font-medium">
+                            Hodnota: {reading.value.toFixed(3)}
+                          </div>
+                          {reading.note && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Poznámka: {reading.note}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-400 mt-1">
+                            {new Date(reading.date_taken).toLocaleString('cs-CZ')}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditReading(reading)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm('Opravdu chcete smazat tento odečet?')) {
+                                deleteReadingMutation.mutate(reading.id)
+                              }
+                            }}
+                            disabled={deleteReadingMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {reading.photo_url && (
+                        <div className="mt-2">
+                          <img
+                            src={reading.photo_url}
+                            alt="Fotografie měřáku"
+                            className="h-20 w-auto rounded border"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-8">
+                  {filterPeriod ? 'Žádné odečty pro vybrané období' : 'Zatím nejsou žádné odečty'}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Billing Period Selection */}
@@ -626,7 +847,7 @@ export default function ReadingsPage() {
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Uložit odečet
+                {editingReading ? 'Uložit změny' : 'Uložit odečet'}
               </>
             )}
           </Button>

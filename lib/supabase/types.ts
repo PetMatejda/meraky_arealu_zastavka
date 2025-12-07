@@ -42,6 +42,8 @@ export type Database = {
           tenant_id: string | null
           location_description: string | null
           notes: string | null
+          start_value: number | null
+          start_period_id: string | null
           created_at: string
           updated_at: string
         }
@@ -53,6 +55,8 @@ export type Database = {
           tenant_id?: string | null
           location_description?: string | null
           notes?: string | null
+          start_value?: number | null
+          start_period_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -64,6 +68,8 @@ export type Database = {
           tenant_id?: string | null
           location_description?: string | null
           notes?: string | null
+          start_value?: number | null
+          start_period_id?: string | null
           created_at?: string
           updated_at?: string
         }
