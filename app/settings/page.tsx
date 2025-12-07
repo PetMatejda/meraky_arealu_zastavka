@@ -16,6 +16,8 @@ import type { BillingPeriod, Tenant } from '@/lib/types/database'
 export default function SettingsPage() {
   const [isCreatingPeriod, setIsCreatingPeriod] = useState(false)
   const [isCreatingTenant, setIsCreatingTenant] = useState(false)
+  const [editingPeriod, setEditingPeriod] = useState<BillingPeriod | null>(null)
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const queryClient = useQueryClient()
 
   // Fetch billing periods
@@ -84,7 +86,11 @@ export default function SettingsPage() {
                       Status: {period.status === 'open' ? 'Otevřeno' : 'Uzavřeno'}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditingPeriod(period)}
+                  >
                     Upravit
                   </Button>
                 </div>
@@ -125,7 +131,11 @@ export default function SettingsPage() {
                       <p className="text-sm text-gray-500">IČO: {tenant.ico}</p>
                     )}
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditingPeriod(period)}
+                  >
                     Upravit
                   </Button>
                 </div>
@@ -140,24 +150,34 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      {/* Create Period Modal */}
-      {isCreatingPeriod && (
+      {/* Create/Edit Period Modal */}
+      {(isCreatingPeriod || editingPeriod) && (
         <BillingPeriodForm
-          onClose={() => setIsCreatingPeriod(false)}
+          period={editingPeriod}
+          onClose={() => {
+            setIsCreatingPeriod(false)
+            setEditingPeriod(null)
+          }}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['billing-periods'] })
             setIsCreatingPeriod(false)
+            setEditingPeriod(null)
           }}
         />
       )}
 
-      {/* Create Tenant Modal */}
-      {isCreatingTenant && (
+      {/* Create/Edit Tenant Modal */}
+      {(isCreatingTenant || editingTenant) && (
         <TenantForm
-          onClose={() => setIsCreatingTenant(false)}
+          tenant={editingTenant}
+          onClose={() => {
+            setIsCreatingTenant(false)
+            setEditingTenant(null)
+          }}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['tenants'] })
             setIsCreatingTenant(false)
+            setEditingTenant(null)
           }}
         />
       )}
@@ -166,22 +186,24 @@ export default function SettingsPage() {
 }
 
 function BillingPeriodForm({
+  period,
   onClose,
   onSuccess,
 }: {
+  period?: BillingPeriod | null
   onClose: () => void
   onSuccess: () => void
 }) {
   const currentDate = new Date()
   const [formData, setFormData] = useState({
-    month: currentDate.getMonth() + 1,
-    year: currentDate.getFullYear(),
-    unit_price_gas: '',
-    unit_price_electricity: '',
-    unit_price_water: '',
-    total_invoice_gas: '',
-    total_invoice_electricity: '',
-    total_invoice_water: '',
+    month: period?.month || currentDate.getMonth() + 1,
+    year: period?.year || currentDate.getFullYear(),
+    unit_price_gas: period?.unit_price_gas?.toString() || '',
+    unit_price_electricity: period?.unit_price_electricity?.toString() || '',
+    unit_price_water: period?.unit_price_water?.toString() || '',
+    total_invoice_gas: period?.total_invoice_gas?.toString() || '',
+    total_invoice_electricity: period?.total_invoice_electricity?.toString() || '',
+    total_invoice_water: period?.total_invoice_water?.toString() || '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,12 +220,24 @@ function BillingPeriodForm({
       total_invoice_water: formData.total_invoice_water ? parseFloat(formData.total_invoice_water) : null,
     }
 
-    const { error } = await supabase
-      .from('billing_periods')
-      .insert(data as any)
+    let error
+    if (period) {
+      // Update existing period
+      const { error: updateError } = await supabase
+        .from('billing_periods')
+        .update(data as any)
+        .eq('id', period.id)
+      error = updateError
+    } else {
+      // Create new period
+      const { error: insertError } = await supabase
+        .from('billing_periods')
+        .insert(data as any)
+      error = insertError
+    }
 
     if (error) {
-      alert('Chyba při vytváření: ' + error.message)
+      alert(`Chyba při ${period ? 'úpravě' : 'vytváření'}: ` + error.message)
       return
     }
 
@@ -214,8 +248,8 @@ function BillingPeriodForm({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Nové fakturační období</CardTitle>
-          <CardDescription>Vytvořte nové fakturační období</CardDescription>
+          <CardTitle>{period ? 'Upravit fakturační období' : 'Nové fakturační období'}</CardTitle>
+          <CardDescription>{period ? 'Upravte fakturační období' : 'Vytvořte nové fakturační období'}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -344,18 +378,20 @@ function BillingPeriodForm({
 }
 
 function TenantForm({
+  tenant,
   onClose,
   onSuccess,
 }: {
+  tenant?: Tenant | null
   onClose: () => void
   onSuccess: () => void
 }) {
   const [formData, setFormData] = useState({
-    company_name: '',
-    ico: '',
-    contact_email: '',
-    contact_phone: '',
-    address: '',
+    company_name: tenant?.company_name || '',
+    ico: tenant?.ico || '',
+    contact_email: tenant?.contact_email || '',
+    contact_phone: tenant?.contact_phone || '',
+    address: tenant?.address || '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -369,12 +405,24 @@ function TenantForm({
       address: formData.address || null,
     }
 
-    const { error } = await supabase
-      .from('tenants')
-      .insert(data as any)
+    let error
+    if (tenant) {
+      // Update existing tenant
+      const { error: updateError } = await supabase
+        .from('tenants')
+        .update(data as any)
+        .eq('id', tenant.id)
+      error = updateError
+    } else {
+      // Create new tenant
+      const { error: insertError } = await supabase
+        .from('tenants')
+        .insert(data as any)
+      error = insertError
+    }
 
     if (error) {
-      alert('Chyba při vytváření: ' + error.message)
+      alert(`Chyba při ${tenant ? 'úpravě' : 'vytváření'}: ` + error.message)
       return
     }
 
@@ -385,8 +433,8 @@ function TenantForm({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle>Nový podnájemce</CardTitle>
-          <CardDescription>Přidejte nového podnájemce</CardDescription>
+          <CardTitle>{tenant ? 'Upravit podnájemce' : 'Nový podnájemce'}</CardTitle>
+          <CardDescription>{tenant ? 'Upravte údaje o podnájemci' : 'Přidejte nového podnájemce'}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -449,7 +497,7 @@ function TenantForm({
               </Button>
               <Button type="submit">
                 <Save className="mr-2 h-4 w-4" />
-                Vytvořit
+                {tenant ? 'Uložit změny' : 'Vytvořit'}
               </Button>
             </div>
           </form>

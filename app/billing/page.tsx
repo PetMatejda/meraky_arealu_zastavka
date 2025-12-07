@@ -130,13 +130,34 @@ export default function BillingPage() {
                   startValue = meter.start_value
                 }
               } else {
+                // Current period is start period or before - show start value
                 consumption = currentReading.value
+                if (period.year === startPeriod.year && period.month === startPeriod.month) {
+                  startValue = meter.start_value
+                }
               }
             } else {
               consumption = currentReading.value
             }
           } else {
             consumption = currentReading.value
+          }
+        }
+        
+        // If no previous reading and meter has start_value, show it
+        if (!prevReading && meter.start_value !== null && startValue === null) {
+          // Check if current period is after or equal to start period
+          if (meter.start_period_id) {
+            const startPeriod = billingPeriods?.find(p => p.id === meter.start_period_id)
+            if (startPeriod) {
+              const isCurrentAfterOrEqualStart = 
+                period.year > startPeriod.year ||
+                (period.year === startPeriod.year && period.month >= startPeriod.month)
+              
+              if (isCurrentAfterOrEqualStart) {
+                startValue = meter.start_value
+              }
+            }
           }
         }
 
