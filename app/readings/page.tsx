@@ -361,10 +361,10 @@ export default function ReadingsPage() {
           note: note || null,
         }
         
-        // @ts-ignore - Supabase types issue with update
         const { data, error } = await supabase
           .from('readings')
-          .update(updateData)
+          // @ts-ignore - Supabase types issue
+          .update(updateData as any)
           .eq('id', editingReading.id)
           .select()
           .single()
@@ -382,10 +382,10 @@ export default function ReadingsPage() {
           created_by: user?.id || null,
         }
         
-        // @ts-ignore - Supabase types issue with insert
         const { data, error } = await supabase
           .from('readings')
-          .insert(insertData)
+          // @ts-ignore - Supabase types issue
+          .insert(insertData as any)
           .select()
           .single()
 
