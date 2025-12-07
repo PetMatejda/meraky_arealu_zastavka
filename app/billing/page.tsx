@@ -16,6 +16,7 @@ interface BillingReportRow {
   meter: Meter
   previous_reading: Reading | null
   current_reading: Reading | null
+  start_value: number | null
   consumption: number
   unit_price: number
   total: number
@@ -101,6 +102,8 @@ export default function BillingPage() {
 
         // Calculate consumption - use initial state if applicable
         let consumption: number
+        let startValue: number | null = null
+        
         if (prevReading) {
           consumption = currentReading.value - prevReading.value
         } else {
@@ -124,6 +127,7 @@ export default function BillingPage() {
                   consumption = currentReading.value - startReading.value
                 } else {
                   consumption = currentReading.value - meter.start_value
+                  startValue = meter.start_value
                 }
               } else {
                 consumption = currentReading.value
@@ -148,6 +152,7 @@ export default function BillingPage() {
           meter,
           previous_reading: prevReading || null,
           current_reading: currentReading,
+          start_value: startValue,
           consumption,
           unit_price: unitPrice,
           total,
@@ -180,7 +185,7 @@ export default function BillingPage() {
       row.meter.serial_number,
       row.meter.media_type === 'gas' ? 'Plyn' :
         row.meter.media_type === 'electricity' ? 'Elektřina' : 'Voda',
-      row.previous_reading?.value.toFixed(3) || '-',
+      row.previous_reading?.value.toFixed(3) || (row.start_value !== null ? row.start_value.toFixed(3) : '-'),
       row.current_reading?.value.toFixed(3) || '-',
       row.consumption.toFixed(3),
       row.unit_price.toFixed(4),
@@ -331,7 +336,7 @@ export default function BillingPage() {
                           </div>
                         </td>
                         <td className="p-3 text-right">
-                          {row.previous_reading?.value.toFixed(3) || '-'}
+                          {row.previous_reading?.value.toFixed(3) || (row.start_value !== null ? row.start_value.toFixed(3) : '-')}
                         </td>
                         <td className="p-3 text-right">
                           {row.current_reading?.value.toFixed(3)}
