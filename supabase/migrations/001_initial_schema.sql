@@ -26,22 +26,7 @@ CREATE TABLE meters (
     location_description TEXT,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    -- Constraint: max depth 4 levels
-    CONSTRAINT check_max_depth CHECK (
-        (SELECT COUNT(*) FROM meters m1 
-         WHERE m1.id = meters.id 
-         AND EXISTS (
-             SELECT 1 FROM meters m2 WHERE m2.parent_meter_id = m1.id
-             AND EXISTS (
-                 SELECT 1 FROM meters m3 WHERE m3.parent_meter_id = m2.id
-                 AND EXISTS (
-                     SELECT 1 FROM meters m4 WHERE m4.parent_meter_id = m3.id
-                 )
-             )
-         )
-        ) = 0
-    )
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create index for parent_meter_id for faster hierarchy queries
@@ -129,6 +114,31 @@ BEGIN
     RETURN depth;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function to check max depth (max 4 levels = depth 0-3)
+CREATE OR REPLACE FUNCTION check_meter_max_depth()
+RETURNS TRIGGER AS $$
+DECLARE
+    depth INTEGER;
+BEGIN
+    -- Calculate depth of the new/updated meter
+    depth := get_meter_depth(NEW.id);
+    
+    -- If depth >= 4, reject the operation
+    IF depth >= 4 THEN
+        RAISE EXCEPTION 'Maximum hierarchy depth exceeded. Maximum allowed depth is 4 levels (0-3). Current depth: %', depth;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to enforce max depth constraint
+CREATE TRIGGER check_meter_depth_trigger
+    BEFORE INSERT OR UPDATE ON meters
+    FOR EACH ROW
+    WHEN (NEW.parent_meter_id IS NOT NULL)
+    EXECUTE FUNCTION check_meter_max_depth();
 
 -- View for meter hierarchy (useful for reporting)
 CREATE OR REPLACE VIEW meter_hierarchy AS
