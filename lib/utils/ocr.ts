@@ -25,8 +25,6 @@ export async function extractMeterData(
           console.log(`OCR Progress: ${Math.round(progress)}%`)
         }
       },
-      // Optimalizace pro měřáky - hledáme čísla a písmena
-      tessedit_char_whitelist: '0123456789.,ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ',
     })
     
     console.log('OCR Text:', text)
@@ -96,13 +94,15 @@ export function extractValue(text: string): number | null {
   const allNumbers: number[] = []
   
   for (const pattern of patterns) {
-    const matches = cleanedText.matchAll(pattern)
-    for (const match of matches) {
-      // Replace comma with dot for Czech format
-      const numStr = match[0].replace(',', '.')
-      const value = parseFloat(numStr)
-      if (!isNaN(value) && value > 0) {
-        allNumbers.push(value)
+    const matches = cleanedText.match(pattern)
+    if (matches) {
+      for (const match of matches) {
+        // Replace comma with dot for Czech format
+        const numStr = match.replace(',', '.')
+        const value = parseFloat(numStr)
+        if (!isNaN(value) && value > 0) {
+          allNumbers.push(value)
+        }
       }
     }
   }
