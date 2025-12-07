@@ -45,7 +45,7 @@ export default function ReadingsPage() {
     },
   })
 
-  // Fetch meters
+  // Fetch meters with initial state info
   const { data: meters } = useQuery({
     queryKey: ['meters'],
     queryFn: async () => {
@@ -53,22 +53,52 @@ export default function ReadingsPage() {
         .from('meters')
         .select('*')
         .order('serial_number')
-      
+        
       if (error) throw error
       return data as Meter[]
     },
   })
 
   // Fetch previous reading when meter and period are selected
-  const { data: previousReading } = useQuery({
+  // Also check for initial state
+  const { data: previousReadingData } = useQuery({
     queryKey: ['previous-reading', selectedMeter, selectedPeriod],
     queryFn: async () => {
-      if (!selectedMeter || !selectedPeriod) return null
+      if (!selectedMeter || !selectedPeriod) return { reading: null, meter: null }
+
+      // Get meter data to check for initial state
+      const meter = meters?.find(m => m.id === selectedMeter)
+      if (!meter) return { reading: null, meter: null }
+
+      // Get current period
+      const currentPeriod = billingPeriods?.find(p => p.id === selectedPeriod)
+      if (!currentPeriod) return { reading: null, meter }
+
+      // Check if current period is the start period or after it
+      const isStartPeriod = meter.start_period_id === selectedPeriod
+      const isAfterStartPeriod = meter.start_period_id && meter.start_value !== null
+        ? (() => {
+            const startPeriod = billingPeriods?.find(p => p.id === meter.start_period_id)
+            if (!startPeriod) return false
+            return (
+              currentPeriod.year > startPeriod.year ||
+              (currentPeriod.year === startPeriod.year && currentPeriod.month > startPeriod.month)
+            )
+          })()
+        : false
+
+      // If this is the start period or after, and we have start_value, use it
+      if (isStartPeriod && meter.start_value !== null) {
+        return {
+          reading: {
+            value: meter.start_value,
+            isInitialState: true,
+          } as any,
+          meter,
+        }
+      }
 
       // Get previous period
-      const currentPeriod = billingPeriods?.find(p => p.id === selectedPeriod)
-      if (!currentPeriod) return null
-
       let prevMonth = currentPeriod.month - 1
       let prevYear = currentPeriod.year
       if (prevMonth < 1) {
@@ -83,10 +113,68 @@ export default function ReadingsPage() {
         .eq('year', prevYear)
         .single()
 
-      if (!prevPeriod) return null
+      if (!prevPeriod) {
+        // No previous period - check if we should use initial state
+        if (isAfterStartPeriod) {
+          // Find the start period reading or use start_value
+          if (meter.start_period_id) {
+            const { data: startReading } = await supabase
+              .from('readings')
+              .select('*')
+              .eq('meter_id', selectedMeter)
+              .eq('billing_period_id', meter.start_period_id)
+              .single()
+            
+            if (startReading) {
+              return { reading: startReading as Reading, meter }
+            } else if (meter.start_value !== null) {
+              return {
+                reading: {
+                  value: meter.start_value,
+                  isInitialState: true,
+                } as any,
+                meter,
+              }
+            }
+          }
+        }
+        return { reading: null, meter }
+      }
 
       const prevPeriodId = (prevPeriod as { id: string } | null)?.id
-      if (!prevPeriodId) return null
+      if (!prevPeriodId) return { reading: null, meter }
+      
+      // Check if previous period is before start period - if so, use start_value
+      if (meter.start_period_id && meter.start_value !== null) {
+        const startPeriod = billingPeriods?.find(p => p.id === meter.start_period_id)
+        if (startPeriod) {
+          const isPrevBeforeStart = 
+            prevYear < startPeriod.year ||
+            (prevYear === startPeriod.year && prevMonth < startPeriod.month)
+          
+          if (isPrevBeforeStart) {
+            // Previous period is before start, but we're after start - use start period reading or start_value
+            const { data: startReading } = await supabase
+              .from('readings')
+              .select('*')
+              .eq('meter_id', selectedMeter)
+              .eq('billing_period_id', meter.start_period_id)
+              .single()
+            
+            if (startReading) {
+              return { reading: startReading as Reading, meter }
+            } else {
+              return {
+                reading: {
+                  value: meter.start_value,
+                  isInitialState: true,
+                } as any,
+                meter,
+              }
+            }
+          }
+        }
+      }
       
       const { data, error } = await supabase
         .from('readings')
@@ -96,19 +184,52 @@ export default function ReadingsPage() {
         .single()
 
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows returned
-      return data as Reading | null
+      
+      // If no previous reading found, check if we should use initial state
+      if (!data && meter.start_period_id && meter.start_value !== null) {
+        const startPeriod = billingPeriods?.find(p => p.id === meter.start_period_id)
+        if (startPeriod) {
+          const isCurrentAfterStart = 
+            currentPeriod.year > startPeriod.year ||
+            (currentPeriod.year === startPeriod.year && currentPeriod.month > startPeriod.month)
+          
+          if (isCurrentAfterStart) {
+            // Check if there's a reading for start period
+            const { data: startReading } = await supabase
+              .from('readings')
+              .select('*')
+              .eq('meter_id', selectedMeter)
+              .eq('billing_period_id', meter.start_period_id)
+              .single()
+            
+            if (startReading) {
+              return { reading: startReading as Reading, meter }
+            } else {
+              return {
+                reading: {
+                  value: meter.start_value,
+                  isInitialState: true,
+                } as any,
+                meter,
+              }
+            }
+          }
+        }
+      }
+      
+      return { reading: data as Reading | null, meter }
     },
     enabled: !!selectedMeter && !!selectedPeriod,
   })
 
   // Update previous value when previous reading is loaded
   useEffect(() => {
-    if (previousReading) {
-      setPreviousValue(previousReading.value)
+    if (previousReadingData?.reading) {
+      setPreviousValue(previousReadingData.reading.value)
     } else {
       setPreviousValue(null)
     }
-  }, [previousReading])
+  }, [previousReadingData])
 
   // Handle photo capture
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -254,13 +375,13 @@ export default function ReadingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Mobilní odečet</h1>
-        <p className="text-gray-600 mt-2">Vyfotografujte měřák a zadejte hodnotu</p>
+    <div className="container mx-auto px-4 py-4 sm:py-8 max-w-4xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Mobilní odečet</h1>
+        <p className="text-gray-600 mt-2 text-sm sm:text-base">Vyfotografujte měřák a zadejte hodnotu</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Billing Period Selection */}
         <Card>
           <CardHeader>
@@ -415,7 +536,7 @@ export default function ReadingsPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="previous">Předchozí stav</Label>
                   <Input
@@ -427,6 +548,9 @@ export default function ReadingsPage() {
                   />
                   {previousValue === null && (
                     <p className="text-xs text-gray-500 mt-1">Žádný předchozí odečet</p>
+                  )}
+                  {previousReadingData?.reading && (previousReadingData.reading as any).isInitialState && (
+                    <p className="text-xs text-blue-600 mt-1">Počáteční stav měřáku</p>
                   )}
                 </div>
 
@@ -495,7 +619,7 @@ export default function ReadingsPage() {
             type="submit"
             size="lg"
             disabled={!selectedMeter || !selectedPeriod || !newValue || saveReadingMutation.isPending}
-            className="min-w-[200px]"
+            className="w-full sm:w-auto sm:min-w-[200px]"
           >
             {saveReadingMutation.isPending ? (
               'Ukládání...'

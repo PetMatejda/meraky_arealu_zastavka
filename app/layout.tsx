@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           <Navbar />
-          <main className="min-h-screen bg-gray-50">
+          <main className="min-h-screen bg-gray-50 pb-4 sm:pb-8">
             {children}
           </main>
         </Providers>

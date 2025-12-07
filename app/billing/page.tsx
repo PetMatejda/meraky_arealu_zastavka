@@ -99,9 +99,42 @@ export default function BillingPage() {
 
         if (!currentReading) continue // Skip if no reading for this period
 
-        const consumption = prevReading
-          ? currentReading.value - prevReading.value
-          : currentReading.value
+        // Calculate consumption - use initial state if applicable
+        let consumption: number
+        if (prevReading) {
+          consumption = currentReading.value - prevReading.value
+        } else {
+          // No previous reading - check if we should use initial state
+          if (meter.start_period_id && meter.start_value !== null) {
+            const startPeriod = billingPeriods?.find(p => p.id === meter.start_period_id)
+            if (startPeriod) {
+              const isCurrentAfterStart = 
+                period.year > startPeriod.year ||
+                (period.year === startPeriod.year && period.month > startPeriod.month)
+              
+              if (isCurrentAfterStart) {
+                // Check if there's a reading for start period
+                const startReading = currentReadings?.find(r => 
+                  r.meter_id === meter.id && r.billing_period_id === meter.start_period_id
+                ) || prevReadings?.find(r => 
+                  r.meter_id === meter.id && r.billing_period_id === meter.start_period_id
+                )
+                
+                if (startReading) {
+                  consumption = currentReading.value - startReading.value
+                } else {
+                  consumption = currentReading.value - meter.start_value
+                }
+              } else {
+                consumption = currentReading.value
+              }
+            } else {
+              consumption = currentReading.value
+            }
+          } else {
+            consumption = currentReading.value
+          }
+        }
 
         const unitPrice = 
           meter.media_type === 'gas' ? period.unit_price_gas || 0 :

@@ -58,3 +58,35 @@
   }
 }
 
+/* Mobile-first improvements */
+@layer utilities {
+  /* Better touch targets for mobile */
+  button, a, input[type="button"], input[type="submit"] {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Better spacing for mobile */
+  .container {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Larger text on mobile for better readability */
+  @media (max-width: 640px) {
+    html {
+      font-size: 16px;
+    }
+    
+    h1 {
+      @apply text-2xl;
+    }
+    
+    h2 {
+      @apply text-xl;
+    }
+    
+    h3 {
+      @apply text-lg;
+    }
+  }
+}
+

@@ -42,9 +42,24 @@ export default function MetersPage() {
         .from('tenants')
         .select('*')
         .order('company_name')
-      
+        
       if (error) throw error
       return data as Tenant[]
+    },
+  })
+
+  // Fetch billing periods for initial state selection
+  const { data: billingPeriods } = useQuery({
+    queryKey: ['billing-periods'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('billing_periods')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
+      
+      if (error) throw error
+      return data as any[]
     },
   })
 
@@ -154,13 +169,13 @@ export default function MetersPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex justify-between items-center">
+    <div className="container mx-auto px-4 py-4 sm:py-8">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Měřáky</h1>
-          <p className="text-gray-600 mt-2">Správa hierarchie měřáků</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Měřáky</h1>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base">Správa hierarchie měřáků</p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={() => setIsCreating(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Přidat měřák
         </Button>
@@ -189,6 +204,7 @@ export default function MetersPage() {
           meter={editingMeter}
           tenants={tenants || []}
           allMeters={meters || []}
+          billingPeriods={billingPeriods || []}
           onClose={() => {
             setIsCreating(false)
             setEditingMeter(null)
@@ -208,12 +224,14 @@ function MeterForm({
   meter,
   tenants,
   allMeters,
+  billingPeriods,
   onClose,
   onSuccess,
 }: {
   meter: Meter | null
   tenants: Tenant[]
   allMeters: (Meter & { tenant: Tenant | null })[]
+  billingPeriods: any[]
   onClose: () => void
   onSuccess: () => void
 }) {
@@ -224,6 +242,8 @@ function MeterForm({
     tenant_id: meter?.tenant_id || '',
     location_description: meter?.location_description || '',
     notes: meter?.notes || '',
+    start_value: meter?.start_value?.toString() || '',
+    start_period_id: meter?.start_period_id || '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -236,6 +256,8 @@ function MeterForm({
       tenant_id: formData.tenant_id || null,
       location_description: formData.location_description || null,
       notes: formData.notes || null,
+      start_value: formData.start_value ? parseFloat(formData.start_value) : null,
+      start_period_id: formData.start_period_id || null,
     }
 
     if (meter) {
@@ -258,6 +280,8 @@ function MeterForm({
         tenant_id: formData.tenant_id || null,
         location_description: formData.location_description || null,
         notes: formData.notes || null,
+        start_value: formData.start_value ? parseFloat(formData.start_value) : null,
+        start_period_id: formData.start_period_id || null,
       }
       const { error } = await supabase
         .from('meters')
@@ -280,8 +304,8 @@ function MeterForm({
   })
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <Card className="w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>{meter ? 'Upravit měřák' : 'Nový měřák'}</CardTitle>
           <CardDescription>Vyplňte údaje o měřáku</CardDescription>
@@ -368,11 +392,57 @@ function MeterForm({
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4">Počáteční stav</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Nastavte počáteční hodnotu a období, od kterého se bude počítat spotřeba. 
+                Pokud není nastaveno, použije se předchozí odečet.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="start_period_id">Počáteční období</Label>
+                  <Select
+                    id="start_period_id"
+                    value={formData.start_period_id}
+                    onChange={(e) => setFormData({ ...formData, start_period_id: e.target.value })}
+                    className="mt-1"
+                  >
+                    <option value="">Nenastaveno</option>
+                    {billingPeriods.map((period) => (
+                      <option key={period.id} value={period.id}>
+                        {period.month}/{period.year}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="start_value">Počáteční hodnota</Label>
+                  <Input
+                    id="start_value"
+                    type="number"
+                    step="0.001"
+                    value={formData.start_value}
+                    onChange={(e) => setFormData({ ...formData, start_value: e.target.value })}
+                    placeholder="Např. 1234.567"
+                    className="mt-1"
+                    disabled={!formData.start_period_id}
+                  />
+                  {!formData.start_period_id && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Nejprve vyberte počáteční období
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Zrušit
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="w-full sm:w-auto">
                 {meter ? 'Uložit změny' : 'Vytvořit'}
               </Button>
             </div>
