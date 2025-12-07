@@ -220,11 +220,12 @@ function BillingPeriodForm({
       total_invoice_water: formData.total_invoice_water ? parseFloat(formData.total_invoice_water) : null,
     }
 
-    let error
+    let error: any
     if (period) {
       // Update existing period
       const { error: updateError } = await supabase
         .from('billing_periods')
+        // @ts-ignore - Supabase types issue
         .update(data as any)
         .eq('id', period.id)
       error = updateError
@@ -232,6 +233,7 @@ function BillingPeriodForm({
       // Create new period
       const { error: insertError } = await supabase
         .from('billing_periods')
+        // @ts-ignore - Supabase types issue
         .insert(data as any)
       error = insertError
     }
@@ -405,11 +407,12 @@ function TenantForm({
       address: formData.address || null,
     }
 
-    let error
+    let error: any
     if (tenant) {
       // Update existing tenant
       const { error: updateError } = await supabase
         .from('tenants')
+        // @ts-ignore - Supabase types issue
         .update(data as any)
         .eq('id', tenant.id)
       error = updateError
@@ -417,6 +420,7 @@ function TenantForm({
       // Create new tenant
       const { error: insertError } = await supabase
         .from('tenants')
+        // @ts-ignore - Supabase types issue
         .insert(data as any)
       error = insertError
     }
