@@ -14,6 +14,7 @@ import { Camera, Upload, Save, AlertCircle, Edit, Trash2, List } from 'lucide-re
 import { extractMeterData } from '@/lib/utils/ocr'
 import { cn } from '@/lib/utils/cn'
 import type { BillingPeriod, Meter, Reading } from '@/lib/types/database'
+import type { Database } from '@/lib/supabase/types'
 
 export default function ReadingsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('')
@@ -352,15 +353,17 @@ export default function ReadingsPage() {
 
       if (editingReading) {
         // Update existing reading
+        const updateData: Database['public']['Tables']['readings']['Update'] = {
+          meter_id: selectedMeter,
+          billing_period_id: selectedPeriod,
+          value: value,
+          photo_url: photoUrl,
+          note: note || null,
+        }
+        
         const { data, error } = await supabase
           .from('readings')
-          .update({
-            meter_id: selectedMeter,
-            billing_period_id: selectedPeriod,
-            value: value,
-            photo_url: photoUrl,
-            note: note || null,
-          } as any)
+          .update(updateData)
           .eq('id', editingReading.id)
           .select()
           .single()
@@ -369,16 +372,18 @@ export default function ReadingsPage() {
         return data
       } else {
         // Create new reading
+        const insertData: Database['public']['Tables']['readings']['Insert'] = {
+          meter_id: selectedMeter,
+          billing_period_id: selectedPeriod,
+          value: value,
+          photo_url: photoUrl,
+          note: note || null,
+          created_by: user?.id || null,
+        }
+        
         const { data, error } = await supabase
           .from('readings')
-          .insert({
-            meter_id: selectedMeter,
-            billing_period_id: selectedPeriod,
-            value: value,
-            photo_url: photoUrl,
-            note: note || null,
-            created_by: user?.id || null,
-          } as any)
+          .insert(insertData)
           .select()
           .single()
 
