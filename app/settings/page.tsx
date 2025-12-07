@@ -134,7 +134,7 @@ export default function SettingsPage() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setEditingPeriod(period)}
+                    onClick={() => setEditingTenant(tenant)}
                   >
                     Upravit
                   </Button>
