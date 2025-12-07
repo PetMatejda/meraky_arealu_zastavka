@@ -24,7 +24,8 @@ export default function ReadingsPage() {
   const [newValue, setNewValue] = useState<string>('')
   const [note, setNote] = useState<string>('')
   const [isProcessingOCR, setIsProcessingOCR] = useState(false)
-  const [ocrResult, setOcrResult] = useState<{ serialNumber: string | null; value: number | null } | null>(null)
+  const [ocrProgress, setOcrProgress] = useState<number>(0)
+  const [ocrResult, setOcrResult] = useState<{ serialNumber: string | null; value: number | null; confidence: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
@@ -116,6 +117,8 @@ export default function ReadingsPage() {
 
     setPhoto(file)
     setError(null)
+    setOcrProgress(0)
+    setOcrResult(null)
 
     // Create preview
     const reader = new FileReader()
@@ -127,7 +130,9 @@ export default function ReadingsPage() {
     // Process OCR
     setIsProcessingOCR(true)
     try {
-      const result = await extractMeterData(file)
+      const result = await extractMeterData(file, (progress) => {
+        setOcrProgress(progress)
+      })
       setOcrResult(result)
 
       // Auto-select meter if serial number found
@@ -149,6 +154,7 @@ export default function ReadingsPage() {
       setError('Chyba při zpracování OCR')
     } finally {
       setIsProcessingOCR(false)
+      setOcrProgress(0)
     }
   }
 
@@ -307,8 +313,11 @@ export default function ReadingsPage() {
                         setPhoto(null)
                         setPhotoPreview(null)
                         setOcrResult(null)
+                        setOcrProgress(0)
+                        setError(null)
                       }}
                       className="w-full"
+                      disabled={isProcessingOCR}
                     >
                       Změnit fotografii
                     </Button>
@@ -336,8 +345,18 @@ export default function ReadingsPage() {
               </div>
 
               {isProcessingOCR && (
-                <div className="text-sm text-gray-600 text-center">
-                  Zpracovávání OCR...
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-600 text-center">
+                    Zpracovávání OCR... {ocrProgress > 0 && `${Math.round(ocrProgress)}%`}
+                  </div>
+                  {ocrProgress > 0 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${ocrProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -351,7 +370,17 @@ export default function ReadingsPage() {
                   )}
                   {ocrResult.value !== null && (
                     <p className="text-sm text-blue-700">
-                      Hodnota: {ocrResult.value}
+                      Hodnota: {ocrResult.value.toFixed(3)}
+                    </p>
+                  )}
+                  {ocrResult.confidence > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Spolehlivost: {Math.round(ocrResult.confidence)}%
+                    </p>
+                  )}
+                  {!ocrResult.serialNumber && ocrResult.value === null && (
+                    <p className="text-sm text-blue-600 italic">
+                      Nepodařilo se rozpoznat hodnoty. Zkontrolujte kvalitu fotografie a zkuste znovu.
                     </p>
                   )}
                 </div>
