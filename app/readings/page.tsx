@@ -363,7 +363,7 @@ export default function ReadingsPage() {
         
         const { data, error } = await supabase
           .from('readings')
-          .update(updateData)
+          .update(updateData as any)
           .eq('id', editingReading.id)
           .select()
           .single()
@@ -383,7 +383,7 @@ export default function ReadingsPage() {
         
         const { data, error } = await supabase
           .from('readings')
-          .insert(insertData)
+          .insert(insertData as any)
           .select()
           .single()
 
